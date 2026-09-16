@@ -12,13 +12,14 @@ import numpy as np
 import rasterio
 import torch
 import tqdm
+from rasterio.enums import ColorInterp
+from torch.utils.data import DataLoader
+
 from bda.config import get_args
 from bda.datasets import TileDataset, stack_samples
 from bda.preprocess import Preprocessor
 from bda.samplers import GridGeoSampler
 from bda.trainers import CustomSemanticSegmentationTask
-from rasterio.enums import ColorInterp
-from torch.utils.data import DataLoader
 
 
 def add_inference_parser(
@@ -43,6 +44,11 @@ def add_inference_parser(
     )
     parser.add_argument("--inference.batch_size", type=int, help="Batch size")
     parser.add_argument(
+        "--inference.precision",
+        choices=("auto", "fp32", "bf16"),
+        help="Inference precision; auto uses BF16 on Ampere or newer GPUs",
+    )
+    parser.add_argument(
         "--imagery.raw_fn",
         type=str,
         help="Path to the input raster (.tif or .vrt)",
@@ -62,6 +68,28 @@ def add_inference_parser(
     # change them
 
     return parser
+
+
+def resolve_inference_precision(
+    device: torch.device,
+    requested: str = "auto",
+    compute_capability: tuple[int, int] | None = None,
+) -> str:
+    """Resolve auto precision while rejecting unsupported explicit BF16."""
+    if device.type == "cuda" and compute_capability is None:
+        compute_capability = torch.cuda.get_device_capability(device)
+    bf16_supported = (
+        device.type == "cuda"
+        and compute_capability is not None
+        and compute_capability[0] >= 8
+    )
+    if requested == "bf16" and not bf16_supported:
+        raise RuntimeError(
+            f"BF16 inference is not supported on device {device}"
+        )
+    if requested == "bf16" or (requested == "auto" and bf16_supported):
+        return "bf16"
+    return "fp32"
 
 
 def main() -> None:
@@ -102,6 +130,10 @@ def main() -> None:
         if torch.cuda.is_available()
         else "cpu"
     )
+    precision = resolve_inference_precision(
+        device, args["inference"].get("precision", "auto")
+    )
+    print(f"Inference precision: {precision}")
 
     # Load task and data
     tic = time.time()
@@ -181,7 +213,11 @@ def main() -> None:
         x_coords = batch["x"]
         y_coords = batch["y"]
         batch_size = images.shape[0]
-        with torch.inference_mode():
+        with torch.inference_mode(), torch.amp.autocast(
+            "cuda",
+            dtype=torch.bfloat16,
+            enabled=precision == "bf16",
+        ):
             predictions = task(images)
             if use_constraint_loss:
                 # Channel 0 ("Unlabeled") is emitted but never supervised

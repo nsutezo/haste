@@ -58,6 +58,9 @@ _OPTIONAL_CONFIG = {
         "gpu_ids": (list, type(None)),
         "preload": (bool, type(None)),
     },
+    "inference": {
+        "precision": (str, type(None)),
+    },
 }
 
 
@@ -314,6 +317,13 @@ def _validate_optional_values(config: dict) -> None:
                 f"training.gpu_ids must be non-negative integers (got"
                 f" {gpu_ids})."
             )
+
+    precision = config.get("inference", {}).get("precision")
+    if precision not in (None, "auto", "fp32", "bf16"):
+        raise ValueError(
+            "inference.precision must be auto, fp32, or bf16 "
+            f"(got {precision!r})."
+        )
 
 
 def _validate_optional_config(

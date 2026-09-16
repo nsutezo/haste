@@ -3,37 +3,14 @@ FROM mcr.microsoft.com/azureml/curated/minimal-py312-cuda12.4-inference AS conda
 
 USER root
 
-# Pin micromamba's root prefix to the base image's conda root rather than relying
-# on auto-detection from the base image's conda activation. Without this,
-# `micromamba create -f env.yml` (name-based, no -p) can't resolve a root prefix
-# and aborts at startup ("tl::bad_expected_access ... Bad expected access").
-# Rooting it at /opt/miniconda also places the `bda` env at
-# /opt/miniconda/envs/bda, where the later `conda-pack -n bda` looks for it.
-ENV MAMBA_ROOT_PREFIX=/opt/miniconda
-
-# Install micromamba and conda-pack (micromamba avoids Python version conflicts).
-# Install conda-pack with micromamba rather than the base image's `conda`: a
-# plain `conda install conda-pack` also drags in a conda self-upgrade (26.5.0 ->
-# 26.5.3) whose conda-forge build bricks the base `conda` on link
-# (ModuleNotFoundError: No module named 'conda'). micromamba installs conda-pack
-# into the same /opt/miniconda prefix without touching/upgrading conda.
-RUN for i in 1 2 3 4 5; do \
-		apt-get update && apt-get install -y --no-install-recommends libgl1-mesa-glx curl && break || sleep 15; \
-	done \
-	&& rm -rf /var/lib/apt/lists/* \
-	&& curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /usr/local bin/micromamba \
-	&& micromamba install -p /opt/miniconda -c conda-forge conda-pack --yes \
-	&& micromamba clean -afy
-
 # Copy only env.yml first (maximize build cache)
 COPY docker/training/env/env.yml /tmp/env.yml
 
-# Create environment using micromamba and pack it for reuse
-# Force-reinstall setuptools after pip to restore conda-managed files pip may clobber
-RUN micromamba create -f /tmp/env.yml -y \
-	&& micromamba install -n bda -c conda-forge setuptools --force-reinstall -y \
-	&& micromamba clean -afy \
-	&& conda-pack -n bda -o /tmp/bda.tar.gz
+# The AzureML base already ships Conda. Create the environment at its final
+# absolute path so it can be copied between stages without conda-pack.
+RUN conda env create --prefix /opt/conda/envs/bda -f /tmp/env.yml \
+	&& conda install --prefix /opt/conda/envs/bda -c conda-forge setuptools --force-reinstall -y \
+	&& conda clean -afy
 
 
 # ---------- Stage 2: Final Runtime Image ----------
@@ -41,26 +18,14 @@ FROM mcr.microsoft.com/azureml/curated/minimal-py312-cuda12.4-inference
 
 USER root
 
-# Install runtime system dependencies and CA certificates (with retry for flaky network)
-RUN for i in 1 2 3 4 5; do \
-		apt-get update && apt-get install -y --no-install-recommends libgl1-mesa-glx ca-certificates && break || sleep 15; \
-	done \
-	&& update-ca-certificates \
-	&& rm -rf /var/lib/apt/lists/*
-
 # CLI shim for the building-embedding workflow (mirrors imageryprep's
 # prepare-imagery shim). `python` resolves to the conda env at runtime via PATH.
 RUN printf '#!/bin/bash\nexec python -m hastegeo.workflows.embed_buildings "$@"\n' > /usr/local/bin/embed-buildings \
 	&& chmod +x /usr/local/bin/embed-buildings
 
-# Prepare conda env directory owned by the target user, then extract the packed env
-# as that user — non-root tar uses the running user's UID/GID, so no chown -R needed.
-RUN mkdir -p /opt/conda/envs/bda && chown dockeruser:dockeruser /opt/conda/envs/bda
-COPY --chown=dockeruser:dockeruser --from=conda-env /tmp/bda.tar.gz /tmp/bda.tar.gz
+# Preserve the environment's absolute prefix when copying it from the builder.
+COPY --chown=dockeruser:dockeruser --from=conda-env /opt/conda/envs/bda /opt/conda/envs/bda
 USER dockeruser
-RUN tar -xzf /tmp/bda.tar.gz -C /opt/conda/envs/bda \
-	&& rm /tmp/bda.tar.gz \
-	&& /opt/conda/envs/bda/bin/conda-unpack
 
 # Set working directory (created as dockeruser since USER is already set)
 WORKDIR /app
