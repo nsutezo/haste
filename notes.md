@@ -32,3 +32,20 @@
   the existing `vite build` output, zero test breakage. This is the kind
   of change to prioritize each round: high measurable impact, low risk,
   small diff.
+- Second run insight: always grep-verify asset references before assuming
+  a "large asset" backlog item is purely an image-compression task — the
+  HelpDocs `interactive/` folder turned out to be 100% dead code (7.3MB),
+  bigger win than optimizing it would have been. Do a `grep -rn <filename>
+  ui/src` check for every asset file before spending time re-encoding it.
+
+## Image tooling (no cwebp/pngquant/ImageMagick preinstalled, no sudo)
+- This sandbox has no system image tools and no root access
+  (`sudo` is blocked: "no new privileges" flag set). System `pip install`
+  also fails (`externally-managed-environment`).
+- Working approach: `python3 -m venv /tmp/gh-aw/agent/venv && \
+  /tmp/gh-aw/agent/venv/bin/pip install Pillow` — gives WebP encode/decode
+  (`Image.save(path, "WEBP", quality=82, method=6)`) without touching
+  system Python or committing a new dependency. Quality 82 gave 64-91%
+  size reduction on documentation screenshots with no visible artifacts
+  on manual inspection (no pixel-diff tooling available in this sandbox
+  — noted as a proxy limitation).

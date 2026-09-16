@@ -1,8 +1,33 @@
 # Energy Efficiency Backlog (nsutezo/haste)
 
-Last updated: 2026-09-15 (first run, workflow run 35015265296)
+Last updated: 2026-09-16 (second run, workflow run 35113540753)
 
-## Completed this run
+## Completed this run (2026-09-16, run 35113540753)
+- [DONE] **Frontend/UI + Data, HIGH** — HelpDocs image optimization.
+  Branch `efficiency/optimize-helpdocs-images`, PR created (title
+  `[efficiency-improver] perf(ui): optimize HelpDocs images and remove
+  dead assets`). Two sub-changes:
+  1. Re-encoded 11 referenced-but-unoptimized images (results-visualizer,
+     8 labeling comparison JPEGs, 2 model-catalog JPEGs) to WebP q=82
+     via Pillow. 5,224,322 -> 714,800 bytes (-86.3%).
+  2. Discovered and deleted 12 files (~11.8MB) of **completely dead
+     assets** never imported anywhere in ui/src: the entire
+     `ui/src/assets/helpDocs/interactive/` folder (9 files, 7.3MB —
+     these were only referenced by matching filename in unrelated
+     docs/usage/*.md files pointing at a separate docs/_static/usage/
+     copy, NOT the ui/src copies) plus 3 orphaned `results/` images
+     (damage-visualizer.png, raw-predictions-layer.png,
+     results-menu.png, 4.5MB).
+  Net: ui/src/assets/helpDocs 17MB -> 1.1MB (-94%). Verified via
+  `npm run build` (webp assets bundle correctly), eslint (0 new errors,
+  confirmed identical pre-existing errors via git stash diff), and all
+  4 existing node --test suites (66/66 pass).
+  Tooling note: no image conversion tool was preinstalled (no cwebp,
+  no system Pillow, no sudo). Created a throwaway Python venv
+  (`python3 -m venv` + `pip install Pillow`) purely as a one-time local
+  conversion tool — not a new project dependency, nothing committed.
+
+## Completed previously
 - [DONE] **Frontend/UI, HIGH** — Route-level code splitting in
   `ui/src/Components/AppBody.jsx`. Converted all routed component static
   imports to `React.lazy()` + `Suspense`. Main entry JS chunk went from
@@ -13,22 +38,13 @@ Last updated: 2026-09-15 (first run, workflow run 35015265296)
 
 ## Open opportunities (not yet implemented)
 
-### HIGH
-- **HelpDocs images are unoptimized JPEG/PNG, some multi-MB** (Frontend/UI +
-  Data efficiency). `ui/src/assets/helpDocs/**` totals ~17MB; several PNGs
-  are 2-2.5MB each (`results-visualizer.png`, `damage-visualizer.png`,
-  `labeler-labeled.png`, `labeler-predicted.png`, `building-validation.png`,
-  `raw-predictions-layer.png`). These are screenshots — likely reducible by
-  50-80% by re-encoding as WebP/AVIF or just re-compressing PNG/JPEG at
-  reasonable quality, with no visible quality loss for documentation
-  screenshots. Now that route-splitting (see above) means these only load
-  on `/help-docs` visits, this is the next logical layer of savings for
-  users who *do* visit that route. Needs: visual diff review before/after
-  re-encoding, and decide whether to add `<picture>`/WebP fallback or just
-  replace source files directly (simpler, no new markup, but loses avif
-  option for browsers that support it). Measurement: file size before/after
-  re-encode; decode cost is harder to measure without profiling in a real
-  browser — note as a proxy limitation in any future PR.
+### HIGH (DONE — see "Completed this run" above)
+- ~~HelpDocs images unoptimized JPEG/PNG~~ — DONE this run (PR
+  `efficiency/optimize-helpdocs-images`). Also found and removed ~11.8MB
+  of completely dead/unreferenced assets in the same directory tree
+  (`interactive/` folder + 3 orphaned `results/` images) that weren't on
+  the original backlog radar — worth a repo-wide dead-asset sweep next
+  time (check `ui/src/assets/**` more broadly, not just helpDocs).
 
 ### MEDIUM
 - **Azure Cosmos DB `SELECT *` queries** in
@@ -74,7 +90,11 @@ Last updated: 2026-09-15 (first run, workflow run 35015265296)
   to core lib code.
 
 ## Backlog cursor
-Next run should: (1) investigate HelpDocs image re-encoding (HIGH,
-straightforward, high-confidence win), (2) look at Cosmos SELECT *
-projection narrowing if a Cosmos emulator test harness exists, (3) attempt
-hastelib pytest validation via conda if available in the runner.
+Next run should: (1) look at Cosmos DB SELECT * projection narrowing if a
+Cosmos emulator test harness exists (MEDIUM), (2) attempt hastelib pytest
+validation via conda if available in the runner, (3) do a broader
+dead-asset sweep across `ui/src/assets/**` (not just helpDocs) — the
+`interactive/` folder find this run suggests there may be other orphaned
+assets elsewhere, (4) verify `@fluentui/react-icons` import style
+(LOW, tree-shaking check, still unverified), (5) revisit Task 6
+(measurement infrastructure) — not yet done in either run.
