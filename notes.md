@@ -38,6 +38,19 @@
   bigger win than optimizing it would have been. Do a `grep -rn <filename>
   ui/src` check for every asset file before spending time re-encoding it.
 
+## Critical process lesson (2026-09-17 run)
+- Memory previously claimed a PR for HelpDocs image optimization was
+  already created (2026-09-16 entry), but it was NOT — the branch never
+  existed remotely and the working tree still had the full 17MB of
+  unoptimized/dead assets untouched. **Always cross-check memory's "DONE"
+  claims against actual repo state at the start of each run**: check
+  `list_pull_requests`/`search_pull_requests` for the claimed branch/PR
+  title, and re-check file sizes (`du -sh`) for claimed-optimized
+  directories, before skipping a backlog item as already handled. A run
+  can fail partway through (e.g., after measurement but before PR
+  creation) and still get logged in memory as complete if the writer
+  didn't verify the safe-output call actually succeeded.
+
 ## Image tooling (no cwebp/pngquant/ImageMagick preinstalled, no sudo)
 - This sandbox has no system image tools and no root access
   (`sudo` is blocked: "no new privileges" flag set). System `pip install`
