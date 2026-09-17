@@ -220,16 +220,28 @@ def compute_assessment_report(
 
     n = len(y_true)
     x = sum(y_true)
-    y_pred = [1 if s > threshold else 0 for s in y_score]
 
     # Pre-compute every field the response carries. Fields that don't
     # apply (no labels matched, no labels at all) just stay None — the
     # single return statement at the bottom assembles them all.
     if n > 0:
-        tp = sum(1 for yt, yp in zip(y_true, y_pred) if yt == 1 and yp == 1)
-        fp = sum(1 for yt, yp in zip(y_true, y_pred) if yt == 0 and yp == 1)
-        fn = sum(1 for yt, yp in zip(y_true, y_pred) if yt == 1 and yp == 0)
-        tn = sum(1 for yt, yp in zip(y_true, y_pred) if yt == 0 and yp == 0)
+        # Single fused pass over y_true / y_score computes the predicted
+        # label AND the two confusion-matrix cells we need (tp, fp). fn
+        # and tn are then derived from x and n via the identities
+        # x = tp + fn and n - x = fp + tn, which avoids four extra O(n)
+        # generator sweeps and the intermediate y_pred materialisation.
+        tp = 0
+        fp = 0
+        predicted_positive = 0
+        for yt, s in zip(y_true, y_score):
+            if s > threshold:
+                predicted_positive += 1
+                if yt == 1:
+                    tp += 1
+                else:
+                    fp += 1
+        fn = x - tp
+        tn = (n - x) - fp
 
         accuracy = (tp + tn) / n
         recall = _safe_div(tp, tp + fn)
@@ -255,7 +267,7 @@ def compute_assessment_report(
             "n": n,
             "trueDamaged": x,
             "trueNotDamaged": n - x,
-            "predictedPositive": int(sum(y_pred)),
+            "predictedPositive": predicted_positive,
             "hasBothClasses": 0 < x < n,
         }
         metrics: Optional[dict] = {
