@@ -62,3 +62,24 @@
   size reduction on documentation screenshots with no visible artifacts
   on manual inspection (no pixel-diff tooling available in this sandbox
   — noted as a proxy limitation).
+
+## 2026-09-17 22:41 UTC run — Python-side lessons
+- `compute_assessment_report` in `hastegeo.core.utils.assessment` had a
+  textbook ES-03/SP-C3 pattern: four generator sums over the same iterable
+  plus a materialised `y_pred` list. Fusing them into one loop was a low-
+  risk, high-signal win (verifier: -10.7% wall, p=0, large effect).
+- Look for `sum(1 for ... if X)` clusters over the same iterable — they
+  often collapse to one pass with identity substitutions.
+- The efficiency profiler's top-level delta *under-states* real hot-path
+  wins whenever the workload includes untouched setup cost (200k dict
+  build here was ~35% of wall time and unchanged). Always compare to the
+  verifier's targeted benchmark for the "true" delta on the modified path.
+- Verifier's test gate is repo-wide — an untouched module that can't
+  collect (missing native GDAL/pystac in this sandbox) will fail the
+  gate even for a pure-logic change with 16/16 tests passing on the
+  changed module. Report both facts honestly; per instructions, the
+  verifier verdict is informational, not a merge gate.
+- Workload trick: keeping the workload script at an absolute path
+  outside the repo (session workspace) lets the profiler run it in both
+  baseline and candidate worktrees without needing to seed the file
+  into the baseline worktree.
