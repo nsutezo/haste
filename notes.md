@@ -63,7 +63,25 @@
   on manual inspection (no pixel-diff tooling available in this sandbox
   — noted as a proxy limitation).
 
-## 2026-09-17 22:41 UTC run — Python-side lessons
+## 2026-09-18 14:47 UTC run — process/tooling lessons
+- The efficiency-profiler / verifier tools referenced in earlier memory
+  entries (`.github/tools/efficiency-profiler/`, `.github/tools/
+  verifier/`) do NOT exist in this sandbox checkout — `find .github`
+  shows no `tools/` directory at all. Either they were removed, never
+  committed, or are generated per-run by the workflow harness and not
+  persisted. Don't assume they exist; check with `find`/`ls` first, and
+  fall back to a standalone `time.perf_counter` benchmark script (in
+  `/tmp/gh-aw/agent/`, not the repo) if absent — that's still a valid
+  proxy-metric measurement, just document the methodology explicitly.
+- Rate limiting: `search_pull_requests`/`search_issues` via the GitHub
+  MCP bridge can hit a 30-req/short-window cap; back off ~15s and retry,
+  or prefer `list_pull_requests`/`issue_read` (non-search) where the
+  target number is already known.
+- Bundling two small, independent, same-file-family fixes (shared-sort
+  hoist + GDAL double-call) into one PR was reasonable here since both
+  are tiny, low-risk, and touch adjacent code — but keep genuinely
+  unrelated modules in separate PRs per the "small, focused PRs" rule.
+
 - `compute_assessment_report` in `hastegeo.core.utils.assessment` had a
   textbook ES-03/SP-C3 pattern: four generator sums over the same iterable
   plus a materialised `y_pred` list. Fusing them into one loop was a low-
