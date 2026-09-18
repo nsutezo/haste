@@ -78,7 +78,12 @@ def _safe_div(num: float, den: float) -> float:
     return num / den if den > 0 else 0.0
 
 
-def _average_precision(y_true: list[int], y_score: list[float]) -> float:
+def _average_precision(
+    y_true: list[int],
+    y_score: list[float],
+    *,
+    sorted_pairs: Optional[list[tuple[float, int]]] = None,
+) -> float:
     """Average precision (area under the precision-recall curve).
 
     Implements the same step-function integral as
@@ -87,11 +92,20 @@ def _average_precision(y_true: list[int], y_score: list[float]) -> float:
     ``(recall_i - recall_{i-1}) * precision_i`` over thresholds where a
     new positive is seen. Hand-rolled because we deliberately don't pull
     scikit-learn into the function-app image.
+
+    ``sorted_pairs`` lets a caller that already sorted ``(y_score,
+    y_true)`` (e.g. :func:`compute_assessment_report`, which also calls
+    :func:`_precision_recall_curve` on the same data) pass it in and
+    skip a redundant O(n log n) sort.
     """
     n_pos = sum(y_true)
     if n_pos == 0 or len(y_true) == 0:
         return 0.0
-    pairs = sorted(zip(y_score, y_true), key=lambda x: x[0], reverse=True)
+    pairs = (
+        sorted_pairs
+        if sorted_pairs is not None
+        else sorted(zip(y_score, y_true), key=lambda x: x[0], reverse=True)
+    )
     tp = 0
     fp = 0
     prev_recall = 0.0
@@ -110,7 +124,10 @@ def _average_precision(y_true: list[int], y_score: list[float]) -> float:
 
 
 def _precision_recall_curve(
-    y_true: list[int], y_score: list[float]
+    y_true: list[int],
+    y_score: list[float],
+    *,
+    sorted_pairs: Optional[list[tuple[float, int]]] = None,
 ) -> tuple[list[float], list[float], list[float]]:
     """Same output shape as ``sklearn.metrics.precision_recall_curve``.
 
@@ -118,13 +135,21 @@ def _precision_recall_curve(
     accumulates cumulative (tp, fp) at every distinct threshold; the
     second turns each (tp, fp) pair into a (precision, recall) point.
     Ends with the sklearn sentinel ``(precision=1.0, recall=0.0)``.
+
+    ``sorted_pairs`` lets a caller reuse an already-sorted ``(y_score,
+    y_true)`` sequence instead of re-sorting (see :func:`_average_
+    precision`'s docstring for why).
     """
     n_pos = sum(y_true)
     if n_pos == 0 or len(y_true) == 0:
         return [1.0], [0.0], []
 
     # Pass 1: accumulate (tp, fp) at each distinct threshold.
-    pairs = sorted(zip(y_score, y_true), key=lambda x: x[0], reverse=True)
+    pairs = (
+        sorted_pairs
+        if sorted_pairs is not None
+        else sorted(zip(y_score, y_true), key=lambda x: x[0], reverse=True)
+    )
     tp = fp = 0
     counts: list[tuple[float, int, int]] = []
     for score, label in pairs:
@@ -234,9 +259,24 @@ def compute_assessment_report(
         accuracy = (tp + tn) / n
         recall = _safe_div(tp, tp + fn)
         precision = _safe_div(tp, tp + fp)
-        ap = _average_precision(y_true, y_score) if x > 0 else None
+        # Both curve helpers sort the same (y_score, y_true) pairs
+        # descending by score; sort once here (only when there is at
+        # least one positive, matching each helper's own early-out) and
+        # share it to avoid a redundant O(n log n) pass.
+        sorted_pairs = (
+            sorted(zip(y_score, y_true), key=lambda p: p[0], reverse=True)
+            if x > 0
+            else None
+        )
+        ap = (
+            _average_precision(y_true, y_score, sorted_pairs=sorted_pairs)
+            if x > 0
+            else None
+        )
 
-        pr_p, pr_r, pr_t = _precision_recall_curve(y_true, y_score)
+        pr_p, pr_r, pr_t = _precision_recall_curve(
+            y_true, y_score, sorted_pairs=sorted_pairs
+        )
         # Downsample for transport. Thresholds are one shorter than the
         # precision/recall arrays — use the same step for both.
         if len(pr_p) > pr_curve_max_points:
