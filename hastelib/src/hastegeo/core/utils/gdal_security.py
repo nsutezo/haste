@@ -90,9 +90,9 @@ def harden_gdal(*, force: bool = False) -> None:
     # indices. In GDAL 3.x the manager is unified (one list for raster +
     # vector), so a single pass covers OGR drivers too.
     drivers = [
-        gdal.GetDriver(i)
-        for i in range(gdal.GetDriverCount())
-        if gdal.GetDriver(i) is not None
+        drv
+        for drv in (gdal.GetDriver(i) for i in range(gdal.GetDriverCount()))
+        if drv is not None
     ]
 
     removed: list[str] = []
