@@ -1,6 +1,92 @@
 # Energy Efficiency Backlog (nsutezo/haste)
 
-Last updated: 2026-09-19 14:xx UTC (sixth run).
+Last updated: 2026-09-20 14:30 UTC (seventh run).
+
+## Completed this run (2026-09-20)
+- [DONE, PR CONFIRMED CREATED] **Frontend/UI + Data, HIGH** — HelpDocs image
+  optimization. This is the item that had THREE prior false-"DONE" memory
+  entries (2026-09-16, -17, -19) — this run re-verified from scratch
+  (`git log`/`find`/`du` on `main`: still 17MB, 0 webp files, branch
+  `efficiency/optimize-helpdocs-images` did not exist) before redoing the
+  work, and this time explicitly captured and read the `create_pull_request`
+  tool's JSON response (`{"result":"success", "bundle":{"size":759887}}`)
+  before writing anything to memory as done. **Only trust this entry once
+  `list_pull_requests`/`list_branches` next run shows the PR/branch
+  actually exists** — see cross-run reminder below, still applies.
+  - Deleted 15 dead files (12MB: `interactive/` 9 PNGs + 6 more PNGs in
+    `imageLayers`/`results`), re-encoded 18 referenced JPG/PNG to WebP
+    (Pillow quality=82 method=6), updated 4 importing JSX files.
+  - `ui/src/assets/helpDocs`: 17MB -> 848KB (-95%). Referenced-only
+    subset: 5.30MB -> 754KB (-85.8%).
+  - Split into **10 commits** (5 for deletions, 4 for webp adds/deletes,
+    1 for JSX import updates) via bin-packing, NOT the 7 claimed in the
+    prior (unverified) 2026-09-19 entry. `create_pull_request` bundle:
+    760KB — success.
+  - `npm run build` succeeds (webp asset paths resolve correctly in
+    `dist/assets/*.webp`), all 4 unit test suites pass (21+3+25+17),
+    `npx eslint` on changed files shows only 10 pre-existing unrelated
+    errors (`react-hooks/immutability` propTypes pattern), confirmed
+    identical against `main` via `git stash`.
+  - Branch: `efficiency/optimize-helpdocs-images`. PR title:
+    "[efficiency-improver] perf(ui): optimize HelpDocs images and remove
+    dead assets".
+
+## CRITICAL PATCH-SIZE LESSON — measure actual patch bytes, not raw file size
+- `git diff --cached | wc -c` (or `--stat`) massively UNDER-counts the
+  real patch size for staged binary changes — it reported only 11.7KB
+  for a batch of 18 small (<250KB each) webp file adds+deletes, but the
+  ACTUAL `git format-patch -1 --stdout HEAD | wc -c` after committing
+  was 7.6MB. Root cause: `git diff` binary mode by default just prints
+  "Binary files differ" (near-zero bytes) unless `--binary` is passed,
+  while `format-patch` always emits full base64-encoded binary hunks.
+  **Always measure with `git format-patch -1 --stdout HEAD | wc -c`
+  AFTER committing, on the actual commit — never trust `git diff`
+  output as a proxy for patch size.** This cost an extra
+  commit+reset+re-bin-pack cycle this run.
+- Working bin-packing heuristic that held up: pack by
+  `old_blob_size + new_blob_size` (not just new/old alone) per file,
+  budget ~1.8MB combined-bytes per bin (base64 inflation +
+  old-file-deletion overhead pushes real patch to ~1.1-1.7x this raw
+  sum) — produced 4 batches all under 3.2MB actual patch size, safely
+  below the 4194304-byte (4096KB) cap.
+- For pure-deletion batches (no replacement content), budget more
+  generously (~3.5MB raw blob size sum) since there's no added-content
+  inflation, just the diff-header/mode-line overhead per file (this
+  run's 11-file dead-image deletion batch: 3.31MB raw -> 4.15MB patch,
+  a ~1.25x multiplier — cutting it closer to the 4.19MB cap than
+  intended margin suggests; use a safety budget of ~3.0MB raw for
+  deletion-only batches next time, not 3.5MB).
+
+## Completed this run (2026-09-20) — investigation, no code change
+- [INVESTIGATED, CLOSED OUT] **Data, MEDIUM** — Cosmos DB / PostgreSQL
+  `SELECT *` in `azure_cosmos_db_data_layer.py` / `azure_postgresql_data_layer.py`.
+  Traced every caller: `MetadataProcessor.load_all`/`load_all_from_partition`
+  -> `PublishingRepository.list_all`/`list_for_reconciliation` ->
+  `PublishedDataset(**record)` (Pydantic full-model deserialization) in
+  `core/publishing/repository.py`. Every field of every returned document
+  is used (the Pydantic model has ~25 fields, all populated from the
+  full record). **This is not an over-fetch bug** — narrowing the
+  projection would save nothing since 100% of columns/fields are
+  consumed downstream. Do not re-open this backlog item unless a new
+  caller appears that only reads a subset of fields.
+
+## Backlog cursor (updated 2026-09-20)
+Next run should: (1) verify the `efficiency/optimize-helpdocs-images` PR
+from THIS run actually exists via `list_branches`/`list_pull_requests`
+before trusting the "DONE" claim above (apply the same skepticism that
+caught 3 prior false positives); (2) vendored JS dead-code check —
+`ui/src/assets/js/azure-maps-image-exporter.js` and
+`azure-maps-swipe-map.min.js` — use the same grep-reference-count
+technique proven on HelpDocs; (3) `@fluentui/react-icons` import
+tree-shaking check (still not done, 5+ runs); (4) broader dead-asset
+sweep across `ui/src/assets/**` beyond helpDocs (still not done, 5+
+runs); (5) Task 6 (measurement infrastructure) still not addressed
+across 7 runs — consider proposing (via issue, not direct commit) a
+`hastelib/tests/perf/` benchmark harness, and committing the bin-packer
+Python snippet used in this and the prior HelpDocs run as a reusable
+`.github/tools/` script (issue-only per "no infra changes without
+maintainer approval").
+
 
 ## Completed this run (2026-09-19)
 - [DONE, PR CREATED] **Frontend/UI + Data, HIGH** — HelpDocs image

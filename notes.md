@@ -1,5 +1,24 @@
 # Efficiency Improver — Repo Notes (nsutezo/haste)
 
+## 2026-09-20 run — patch-size measurement fix (IMPORTANT)
+- `git diff --cached | wc -c` / `git diff --cached --stat` are NOT
+  reliable proxies for the eventual `create_pull_request` patch size on
+  binary file changes — git's default diff output collapses binary
+  changes to a one-line "Binary files differ" note, so a batch of 18
+  small (<250KB) webp adds+deletes measured as only ~11KB via `git diff`
+  but produced a **7.6MB** `git format-patch -1 --stdout HEAD` once
+  committed. Always commit first, then measure with `git format-patch
+  -1 --stdout HEAD | wc -c`, and be ready to `git reset --soft HEAD~1`
+  and re-bin-pack if it's oversized — don't trust pre-commit diff size
+  estimates for binary content.
+- Confirmed once more (4th time) that the HelpDocs PR had NOT actually
+  been created despite 3 prior runs' memory claiming success — this run
+  fixed the false-positive pattern by explicitly capturing and printing
+  the raw JSON response from `create_pull_request`/`update_issue` calls
+  and only writing "DONE" to memory after seeing `"result":"success"`
+  in that captured output, not just assuming success from lack of an
+  error.
+
 ## Environment gotchas
 - `npm ci` fails out of the box: `ui/package-lock.json` resolves packages
   from internal `ms-feed-*.pkgs.visualstudio.com` hosts unreachable from
