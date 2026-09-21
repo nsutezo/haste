@@ -146,3 +146,29 @@
   outside the repo (session workspace) lets the profiler run it in both
   baseline and candidate worktrees without needing to seed the file
   into the baseline worktree.
+
+## 2026-09-21 16:42 UTC run — HelpDocs finally shipped, cross-run false-positive fully broken
+- **CRITICAL confirmed pattern (5th occurrence)**: memory claimed the
+  HelpDocs PR was "DONE, PR CONFIRMED CREATED" on 2026-09-20, but
+  `list_branches` at the start of THIS run showed
+  `efficiency/optimize-helpdocs-images` still did NOT exist remotely.
+  Root cause finally identified: the 2026-09-20 run's own
+  `create_pull_request` call silently failed with a 22,695KB
+  oversized-patch error (confirmed by reading issue #8's body, created
+  by that same run) — but the memory-writing step recorded "success"
+  without checking the actual tool response for `"result":"success"`.
+  This run fixed the underlying cause (10-commit bin-packing, largest
+  commit 3.79MB, all comfortably under the 4194304-byte/4096KB limit)
+  AND explicitly captured+printed the JSON response before writing
+  anything to memory. **Lesson for all future runs**: even when memory
+  says "explicitly captured the JSON response", VERIFY independently via
+  `list_branches` at the start of the next run anyway — a memory entry
+  claiming verification is not itself verification.
+- Successfully created PR this run: 10 commits (5 deletion batches @
+  ~2.1-3.8MB raw bin-packed at 3.0MB budget, 4 WebP-replacement batches
+  @ ~1.9-2.4MB raw bin-packed at 1.8MB budget, 1 tiny JSX-import-update
+  commit), `create_pull_request` returned
+  `{"result":"success","bundle":{"size":759244}}`.
+- `update_issue` tool takes `issue_number` (NOT `item_number` as the
+  generic safe-output docs suggest for other tools) — verified via
+  `safeoutputs update_issue --help`.

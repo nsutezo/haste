@@ -1,6 +1,69 @@
 # Energy Efficiency Backlog (nsutezo/haste)
 
-Last updated: 2026-09-20 14:30 UTC (seventh run).
+Last updated: 2026-09-21 16:42 UTC (eighth run).
+
+## Completed this run (2026-09-21) — HelpDocs FINALLY actually shipped
+- [DONE, PR CREATION CONFIRMED via captured JSON response] **Frontend/UI +
+  Data, HIGH** — HelpDocs image optimization. `list_branches` at start of
+  run confirmed `efficiency/optimize-helpdocs-images` did NOT exist yet
+  (5th time this exact false-positive memory pattern has been caught —
+  see notes.md 2026-09-21 entry for root-cause: the 2026-09-20 run's
+  `create_pull_request` silently failed on a 22,695KB oversized patch,
+  producing issue #8, but memory wasn't updated to reflect the failure).
+  - Deleted 15 dead files (12.2MB: 9 `interactive/` PNGs — confirmed via
+    `grep -rl <filename> ui/src`, no `HelpDocsInteractive.jsx` component
+    exists — + 3 `results/` + 3 `imageLayers/` PNGs).
+  - Re-encoded 18 referenced JPG/PNG to WebP (Pillow quality=82,
+    method=6): 5,299,649 -> 754,476 bytes (-85.8%).
+  - `ui/src/assets/helpDocs`: 17MB -> 848KB (-95%).
+  - `npm run build` dist/ output: 12MB -> 7.3MB (-39%).
+  - Split into **10 commits** (5 deletion, 4 WebP-replacement, 1 JSX
+    import-update) via bin-packing (budget 3.0MB raw for deletions,
+    1.8MB combined raw for replacements) — largest single commit patch
+    was 3.79MB, safely under the 4194304-byte cap. Verified every
+    commit's `git format-patch -1 --stdout <sha> | wc -c` individually
+    BEFORE calling `create_pull_request`.
+  - `create_pull_request` returned
+    `{"result":"success","bundle":{"size":759244}}` — captured and
+    printed explicitly.
+  - All 66 unit tests pass, build succeeds, eslint shows only
+    pre-existing errors (confirmed via `git stash` diff against `main`).
+  - Branch: `efficiency/optimize-helpdocs-images`. PR title:
+    "[efficiency-improver] perf(ui): optimize HelpDocs images and remove
+    dead assets".
+
+## Investigated and closed out this run (2026-09-21), no code change
+- **Vendored JS dead-code check** (`ui/src/assets/js/*.js`): NOT dead.
+  `azure-maps-swipe-map.min.js` is loaded via `<script>` tag in
+  `ui/index.html` and consumed by `Visualizer.jsx` (querySelector on
+  `.azure-maps-swipe-map`) and referenced in a comment in
+  `InteractiveLabeler.jsx`. `azure-maps-image-exporter.js` mirrors the
+  same public/src dual-copy pattern (vite serves `public/` at root,
+  `src/assets/js/` copy appears unused as an ES import but the whole
+  pattern mirrors how `index.html` loads global-namespace scripts, not
+  npm-style imports — did not touch, low confidence this is unused
+  dead code vs. just an unreferenced-by-import-but-still-served file).
+  Do not re-open this item; it was a false lead from prior backlog notes.
+- **`@fluentui/react-icons` tree-shaking check**: already fine.
+  `ui/src/util/icons.jsx` imports ~60 icons by name (e.g.
+  `import { AddRegular, AppsRegular, ... } from "@fluentui/react-icons"`)
+  — this is the tree-shakeable per-icon-named-import pattern, not a
+  barrel/wildcard import. No action needed, closed out.
+
+## Backlog cursor (updated 2026-09-21)
+Next run should: (1) close out issues #3, #4, #7, #8 (stale
+oversized-patch auto-issues, all superseded) — flagged in Monthly
+Activity Suggested Actions again, still not actioned by maintainer;
+(2) broader dead-asset sweep across `ui/src/assets/**` beyond helpDocs
+(still not done, 8+ runs) — `js/` vendored files now confirmed NOT
+dead, so look elsewhere (e.g. `ui/src/assets/img/`, `ui/src/assets/json/`
+static json size); (3) Task 6 (measurement infrastructure) still not
+addressed across 8 runs — propose via issue (not direct commit) a
+`hastelib/tests/perf/` benchmark harness and commit the bin-packer
+Python snippet (proven 3x now across HelpDocs runs) as a reusable
+`.github/tools/` script.
+
+---
 
 ## Completed this run (2026-09-20)
 - [DONE, PR CONFIRMED CREATED] **Frontend/UI + Data, HIGH** — HelpDocs image
