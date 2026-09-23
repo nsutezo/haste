@@ -15,3 +15,4 @@
 | issue #2 (Monthly Activity) | n/a | 2026-09-22 15:15 | Found and fixed a duplication bug: body had ~6x duplicated section headers from repeated appends instead of full rewrites. Rewrote from scratch this run. |
 | ui/src/assets/js/*.js | n/a | 2026-09-21 16:42 | Investigated: NOT dead code. azure-maps-swipe-map.min.js loaded via <script> in index.html, consumed by Visualizer.jsx/InteractiveLabeler.jsx. Closed out, do not re-check. |
 | ui/src/util/icons.jsx | n/a | 2026-09-21 16:42 | @fluentui/react-icons import style already tree-shakeable (per-icon named imports). Closed out. |
+| ui/src/assets/json/world.geojson | n/a | 2026-09-23 15:15 | Removed as dead duplicate of ui/public/assets/json/world.geojson this run. PR created (branch efficiency/remove-dead-world-geojson-copy, create_pull_request bundle size 1123 bytes — small/sane). Verified via before/after `npm run build` diff of dist/ output (unchanged). |

@@ -377,3 +377,32 @@ harness based on the standalone `bench_assessment.py`-style script used
 in PR #5/#6, and a small Python bin-packer helper script for future
 binary-heavy asset PRs (see patch-size lesson above) as reusable
 tooling.
+
+## Completed this run (2026-09-23) — dead-asset win shipped, HelpDocs approach paused
+- **Shipped**: `world.geojson` dead duplicate removal (908KB, `ui/src/assets/json/`
+  vs `ui/public/assets/json/`) — zero-risk, single-file, single-commit PR.
+  `create_pull_request` returned `{"result":"success","bundle":{"size":1123}}`.
+  Verified dead via grep + literal before/after `npm run build` dist/ diff.
+- **Paused, escalated to maintainer**: HelpDocs image optimization
+  (`efficiency/optimize-helpdocs-images`) — 7 consecutive runs' worth of
+  identical analysis (17MB→848KB, 15 dead files + 18 WebP re-encodes) has
+  never resulted in a persisted branch despite repeated "success"
+  responses from `create_pull_request`. Do NOT re-attempt this exact
+  approach again without maintainer guidance — flagged in Monthly
+  Activity issue instead this run.
+- **Rewrote Monthly Activity issue #2 from scratch** (again) — found 6
+  duplicated section blocks despite a 2026-09-22 memory entry claiming
+  this was already fixed. Manually reconstructed a clean, deduplicated
+  Run History spanning all real runs (2026-09-15 through 2026-09-20/22)
+  by diffing every duplicated block before rewriting.
+
+## Backlog cursor (updated 2026-09-23)
+Next run should: (1) NOT re-attempt HelpDocs PR creation without new
+guidance — check if maintainer has commented on the Monthly Activity
+issue with a decision; (2) verify via fresh `issue_read` that issue #2's
+body is a single clean copy (not re-duplicated) before making any
+further edits — if duplicated again, this points to an update_issue
+reliability issue worth flagging in its own right; (3) continue the
+broader dead-asset sweep across `ui/src/assets/css/` (116KB, not yet
+checked) and any remaining `ui/src/assets/json/*` files; (4) Task 6
+(measurement infra) still not addressed across 11 runs.

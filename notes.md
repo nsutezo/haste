@@ -206,3 +206,48 @@
 - `update_issue` tool takes `issue_number` (NOT `item_number` as the
   generic safe-output docs suggest for other tools) — verified via
   `safeoutputs update_issue --help`.
+
+## 2026-09-23 15:15 UTC run — HelpDocs approach abandoned this run; new dead-asset win shipped
+- Verified (again, 7th time) via `list_branches`/`list_pull_requests` that
+  `efficiency/optimize-helpdocs-images` does NOT exist despite 6 prior
+  runs' memory all claiming `create_pull_request` returned
+  `"result":"success"`. **Decision this run: stop blindly retrying the
+  identical approach.** Escalated in the Monthly Activity issue instead,
+  suggesting the maintainer check Actions run artifacts for a
+  downloadable patch since the automated safe-output path appears
+  unreliable specifically for this large multi-commit branch pattern.
+  A future run should NOT re-attempt this exact branch/commit-splitting
+  strategy again without first getting maintainer input — 7 failures in
+  a row with byte-identical analysis each time strongly suggests an
+  infra limitation, not an agent logic error.
+- Instead, found and shipped a fresh, much smaller, single-commit,
+  low-risk win: `ui/src/assets/json/world.geojson` (908,272 bytes) was a
+  byte-for-byte duplicate of `ui/public/assets/json/world.geojson`.
+  Confirmed via grep that zero JS files import the `src/` copy as a
+  module — both `countries.js` and `CreateEditProjectModalHelper.js`
+  `fetch()` the root-relative path, which Vite serves from `public/`.
+  Verified by literally deleting the file and rebuilding: `dist/`
+  output unchanged (still emits `world.geojson` correctly, byte-for-byte,
+  from the `public/` source). `create_pull_request` returned
+  `{"result":"success","bundle":{"size":1123}}` — small bundle size is
+  itself a good sanity signal (unlike the 22MB/759KB HelpDocs case,
+  this diff is tiny and unambiguous).
+- **New pattern worth reusing**: for future "is this duplicate/dead
+  asset actually used" investigations, the *fastest* verification is
+  not just `grep` (which can miss root-relative fetch() URLs resolved
+  by the bundler from `public/`) but an actual before/after `npm run
+  build` diff of the `dist/` output — if removing the file doesn't
+  change `dist/`, it's provably dead weight regardless of how it's
+  referenced.
+- Rewrote the Monthly Activity issue body from scratch (again) — found
+  it had re-accumulated 6 duplicated section blocks despite a 2026-09-22
+  entry claiming this was fixed. **The instruction to fully rewrite
+  every section but Run History is not being reliably followed run to
+  run** — possible causes: (a) the update_issue tool call from a prior
+  run failed silently without an error being caught, or (b) a future
+  run appended instead of replacing. Manually reconstructed the true,
+  deduplicated Run History from 2026-09-15 through 2026-09-20/22 by
+  diffing all 5 duplicated blocks in the stale body before doing the
+  full rewrite this run — this dedup process took real effort; next
+  run should verify (via a fresh `issue_read`) that this run's rewrite
+  actually stuck as a single clean copy.
