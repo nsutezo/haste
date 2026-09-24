@@ -251,3 +251,36 @@
   full rewrite this run — this dedup process took real effort; next
   run should verify (via a fresh `issue_read`) that this run's rewrite
   actually stuck as a single clean copy.
+
+## 2026-09-24 15:38 UTC run — new technique: build-diff as a definitive dead-code oracle
+- Formalized the technique first used 2026-09-23 for `world.geojson`:
+  `npm run build` (baseline) → copy `dist/` aside → delete candidate
+  file(s) → `npm run build` again → `diff -rq dist_before dist` (or
+  `md5sum` on the specific output chunk). If the diff is empty / hashes
+  match, the file is provably dead regardless of how confident a `grep`
+  scan feels. Used this run for 2 separate investigations:
+  1. `ui/src/assets/js/*.js` (2 files) — confirmed dead, shipped removal.
+  2. `ui/src/assets/css/style.css` double `@import "root-style.css"` —
+     confirmed **NOT worth removing**: Vite/PostCSS already dedupes
+     `@import` at build time, so `dist/assets/index-*.css` was
+     byte-identical (same MD5) whether the duplicate import was present
+     or not. This is an important negative result: not every apparent
+     "redundant code" pattern actually costs anything once a bundler
+     processes it — always verify with the build-diff oracle before
+     claiming a win, even for something that looks like an obvious bug.
+- **Issue #2 duplication is a recurring pattern, not a one-off**: this is
+  now the 3rd consecutive run (09-22, 09-23, 09-24) where the run started
+  by finding the body re-duplicated despite the prior run's memory
+  claiming a clean single-copy rewrite. Strongly suspect this is a
+  tooling reliability issue (either `update_issue` appending instead of
+  replacing under some condition, or a stale-read/race condition) rather
+  than agent error, since the rewrite step itself is straightforward
+  (fetch current body, discard everything but Run History, construct a
+  fresh body, call `update_issue` with the full replacement). Flagged in
+  Monthly Activity issue this run; if it recurs a 4th time, escalate via
+  `report_incomplete`/`missing_tool` instead of silently re-fixing again.
+- PR patch-size sanity check: 28,483 bytes / 309 lines / 1,005-byte
+  bundle for a pure two-file deletion — a good reference point for what
+  a "small, confident, definitely-real" `create_pull_request` response
+  looks like, versus the HelpDocs pattern's suspicious 22MB+/759KB
+  combination noted in earlier entries.

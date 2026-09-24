@@ -406,3 +406,55 @@ reliability issue worth flagging in its own right; (3) continue the
 broader dead-asset sweep across `ui/src/assets/css/` (116KB, not yet
 checked) and any remaining `ui/src/assets/json/*` files; (4) Task 6
 (measurement infra) still not addressed across 11 runs.
+
+## Completed this run (2026-09-24) — dead vendored JS shipped, CSS double-import investigated (no win)
+- **Verified at start of run** (per cross-run reminder): `list_branches` confirmed
+  PRs #1, #5, #6, #10 all still open as drafts, unmerged. HelpDocs branch
+  (`efficiency/optimize-helpdocs-images`) still does NOT exist — 7+ prior
+  "success" claims for that specific approach remain unconfirmed; did NOT
+  re-attempt this run per the 2026-09-23 decision to await maintainer input.
+- **Shipped**: removed `ui/src/assets/js/azure-maps-image-exporter.js` (13,350B)
+  and `azure-maps-swipe-map.min.js` (12,982B) — both byte-identical dead
+  duplicates of the `ui/public/assets/js/` copies that are actually served
+  (swipe-map via `<script>` in index.html; exporter unreferenced anywhere).
+  Verified via grep (no import/require refs) + before/after `npm run build`
+  dist/ diff (`diff -rq`, byte-identical). PR created:
+  `create_pull_request` returned `{"result":"success","patch":{"size":28483},
+  "bundle":{"size":1005}}` — small/sane sizes, high confidence this one
+  actually persisted (unlike the HelpDocs pattern).
+- **Investigated, no action**: `ui/src/assets/css/style.css` imports
+  `root-style.css` twice (bare `@import` + `@import url()` on adjacent
+  lines) — looked like an easy win, but measured `dist/assets/index-*.css`
+  before/after removing the duplicate import and got a byte-identical MD5
+  match. Vite already dedupes `@import` at build time, so there's no
+  measurable production benefit. Closed out — do not re-attempt without a
+  new measurement angle (dev-server parse time is the only remaining
+  plausible angle, not something this agent can measure without a browser).
+- Issue #2 (Monthly Activity) body was AGAIN found duplicated (5x
+  "Suggested Actions" / 4x "Run History" sections) at the start of this
+  run, despite the 2026-09-23 entry claiming a clean rewrite. **This is now
+  confirmed as a recurring, not one-off, problem** — worth flagging
+  explicitly to the maintainer since 3 consecutive runs (09-22, 09-23,
+  09-24) have each "fixed" it and each found it broken again next time.
+  Possible causes still unconfirmed: (a) `update_issue` silently
+  appending instead of replacing in some code path, (b) two workflow runs
+  racing and each appending their own copy, (c) the safe-output write
+  succeeding but a stale cached body being read by a subsequent run's
+  `issue_read`. Rewrote from scratch again this run.
+
+## Backlog cursor (updated 2026-09-24)
+Next run should: (1) check if maintainer has commented on the Monthly
+Activity issue or any of PRs #1/#5/#6/#10 with guidance, especially on
+the paused HelpDocs approach; (2) if issue #2 is STILL duplicated at the
+start of next run despite this run's clean rewrite, escalate as a
+suspected tooling bug via `missing_tool`/`report_incomplete` rather than
+silently re-fixing a 4th time; (3) continue dead-asset sweep — CSS
+double-import angle is closed out (no measurable win), but the broader
+`ui/src/assets/css/style.css` (88KB, largest CSS file) hasn't been
+scanned for other redundant/unused selectors yet; (4) Task 6 (measurement
+infrastructure) still not addressed across 12 runs — still worth
+proposing via issue (not direct commit) a `hastelib/tests/perf/`
+benchmark harness per the PR #5/#6 pattern, and a `ui/scripts/`
+build-diff helper (formalizing the `diff -rq dist_before dist` technique
+used successfully 3 times now for dead-asset verification) as reusable
+tooling for future asset-sweep runs.
