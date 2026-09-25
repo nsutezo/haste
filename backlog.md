@@ -458,3 +458,34 @@ benchmark harness per the PR #5/#6 pattern, and a `ui/scripts/`
 build-diff helper (formalizing the `diff -rq dist_before dist` technique
 used successfully 3 times now for dead-asset verification) as reusable
 tooling for future asset-sweep runs.
+
+## Completed this run (2026-09-25) — HelpDocs lazy-loading shipped, no maintainer input yet on paused WebP approach
+- **Verified at start**: PRs #1/#5/#6/#10/#11 all still open, unmerged. `list_branches` confirmed
+  `efficiency/optimize-helpdocs-images` still does NOT exist. Issue #2 has zero comments — no
+  maintainer guidance on the paused WebP approach yet. Did NOT re-attempt that branch this run.
+- **Shipped**: `loading="lazy" decoding="async"` on all 19 `<img>` tags across the 4 HelpDocs
+  sub-page components (`HelpDocsLabeling.jsx` 11, `HelpDocsModelCatalog.jsx` 3,
+  `HelpDocsResults.jsx` 3, `HelpDocsModelTraining.jsx` 2). Combined referenced image bytes ~5.2MB,
+  now deferred from eager fetch/decode until near-viewport. `npm run build` succeeds unchanged;
+  eslint shows the same 10 pre-existing errors before/after (confirmed via `git stash` diff, zero
+  new errors introduced); 2 unrelated unit-test suites pass as a sanity check.
+  `create_pull_request` returned `{"result":"success","patch":{"size":12855},"bundle":{"size":1531}}`
+  — small/sane, high confidence this persisted (branch `efficiency/lazy-load-helpdocs-images`).
+- **Rewrote issue #2 body from scratch (again)** — found 5x duplicated sections at start of this
+  run despite the 2026-09-24 entry claiming a clean rewrite. This is now the 5th consecutive run
+  with this exact recurrence. Flagged again in the issue itself; did not spend further effort
+  diagnosing root cause this run since it's already well-documented across 4 prior entries.
+
+## Backlog cursor (updated 2026-09-25)
+Next run should: (1) check issue #2 for maintainer comments before deciding on the paused HelpDocs
+WebP approach — if still silent, keep it paused; (2) if issue #2 is STILL duplicated at the start
+of next run (6th consecutive occurrence), stop silently re-fixing and escalate via
+`missing_tool`/`report_incomplete` instead, since 5 rounds of "fix and hope" has not worked;
+(3) continue asset sweep — `ui/src/assets/css/style.css` (88KB) still not scanned for unused
+selectors beyond the already-closed-out double-@import case; consider PurgeCSS-style unused-rule
+detection as a new angle; (4) Task 6 (measurement infrastructure) still not addressed across 13
+runs — propose via issue (not direct commit) a `hastelib/tests/perf/` benchmark harness and a
+`ui/scripts/build-diff.sh` helper formalizing the dead-code-oracle technique used successfully
+4 times now; (5) once HelpDocs WebP branch persistence is resolved (with or without maintainer
+input), remember it's complementary to this run's lazy-loading win, not overlapping — both should
+ship.
