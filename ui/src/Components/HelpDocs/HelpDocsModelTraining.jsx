@@ -46,10 +46,10 @@ const HelpDocsModelTraining = ({ anchor }) => {
       <p>
         <ol>
           <li>by clicking on “Save and Train” in the labeling tool itself<br />
-            <img src={saveAndTrainModelImage} alt="Save and Train Model" className="img-fluid mt-4 mb-4" />
+            <img src={saveAndTrainModelImage} alt="Save and Train Model" loading="lazy" decoding="async" className="img-fluid mt-4 mb-4" />
           </li>
           <li>OR by clicking on the Train button for that image layer on the Projects page<br />
-            <img src={trainModelImage} alt="Train Model" className="img-fluid mt-4 mb-4" />
+            <img src={trainModelImage} alt="Train Model" loading="lazy" decoding="async" className="img-fluid mt-4 mb-4" />
           </li>
         </ol>
 
