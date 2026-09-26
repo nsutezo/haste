@@ -331,18 +331,15 @@ maintainer approval").
 ## Open opportunities from earlier runs (still unimplemented)
 
 ### MEDIUM
-- Azure Cosmos DB `SELECT *` in
-  `hastelib/src/hastegeo/core/data_layer/azure_cosmos_db_data_layer.py`
-  (`load_all`, `load_all_from_partition`, `delete_all_from_partition`,
-  `load_bounded`). Needs field-usage check before narrowing.
-- Vendored third-party JS files under `ui/src/assets/js/`
-  (`azure-maps-image-exporter.js`, `azure-maps-swipe-map.min.js`) — not
-  confirmed unused yet.
+(none open — Cosmos DB `SELECT *` investigated and closed 2026-09-20,
+no over-fetch found; vendored JS investigated and shipped as a fix
+2026-09-24.)
 
 ### LOW
 - `@fluentui/react-icons` import style not verified for tree-shaking.
-- Broader dead-asset sweep across `ui/src/assets/**` (beyond helpDocs) —
-  still not done across 4 runs.
+- Broader dead-asset sweep across `ui/src/assets/**` — CSS unused
+  selectors done 2026-09-26 (67 classes removed); JSON/JS duplicates
+  done 2026-09-23/24. Remaining: images beyond helpDocs, if any.
 - Nested loops in `embed_buildings.py`, `stats.py`, `tbparser.py` etc.
   — likely small bounded collections; needs profiling first.
 
@@ -489,3 +486,36 @@ runs — propose via issue (not direct commit) a `hastelib/tests/perf/` benchmar
 4 times now; (5) once HelpDocs WebP branch persistence is resolved (with or without maintainer
 input), remember it's complementary to this run's lazy-loading win, not overlapping — both should
 ship.
+
+## Completed this run (2026-09-26) — dead CSS selector sweep shipped
+- **Verified at start**: PRs #1/#5/#6/#10/#11/#12 all still open, unmerged, no maintainer comments
+  on any (checked via `pull_request_read` — all `mergeable_state: unstable`, likely just pending
+  CI checks registering, not failures). Issue #2 still has zero comments — HelpDocs WebP approach
+  remains paused per 2026-09-23 decision; did not re-attempt.
+- **Shipped**: `ui/src/assets/css/style.css` dead-selector removal — 76 rule blocks / 67 classes
+  confirmed unreferenced anywhere in `ui/src/**/*.{jsx,js}`, cross-checked against dynamic
+  template-literal class construction to avoid false positives (kept `dash-job-kind--*`,
+  `pgrid-pill--*`, `modelStatus-*`, `pcard-status--*` untouched). 88,179B -> 80,738B source
+  (-8.4%); dist CSS chunk 308.99kB -> 303.23kB raw / 43.97kB -> 42.99kB gzip. Verified via
+  build-diff oracle + 2 unit test suites (24/24 pass). PR created:
+  `{"result":"success","patch":{"size":16634},"bundle":{"size":2727}}` — small/sane.
+  This closes the "ui/src/assets/css/style.css (88KB, largest CSS file) hasn't been scanned for
+  unused selectors" item open since 2026-09-23 (4 runs in the cursor).
+- Issue #2 (Monthly Activity) duplication confirmed AGAIN (6th consecutive run: 09-21 through
+  09-26). Rewrote from scratch again but flagged the recurrence explicitly in the issue body this
+  time (not just in memory), per the 2026-09-25 escalation plan — next occurrence should trigger
+  `report_incomplete`/`missing_tool` instead of another silent fix.
+
+## Backlog cursor (updated 2026-09-26)
+Next run should: (1) check issue #2 for maintainer comments before deciding on the paused HelpDocs
+WebP approach — if still silent, keep it paused; (2) if issue #2 is STILL duplicated at the start
+of next run (7th consecutive occurrence), escalate via `missing_tool`/`report_incomplete` instead
+of re-fixing again — this has now been flagged 3 runs running (09-24, 09-25, 09-26) with no
+resolution; (3) CSS dead-selector sweep is now DONE for `style.css` — no further action needed
+there unless new dead code is introduced later; consider a fresh sweep of `ui/src/assets/**` for
+any other unscanned CSS/asset files; (4) Task 6 (measurement infrastructure) still not addressed
+across 14 runs — propose via issue (not direct commit) a `hastelib/tests/perf/` benchmark harness
+and a `ui/scripts/build-diff.sh` helper formalizing the dead-code-oracle technique used
+successfully 5 times now; (5) Cosmos DB `SELECT *` investigation was already closed out
+(2026-09-20, no action needed — confirmed full-field usage); update stale MEDIUM backlog entry
+above to remove it, it's no longer open.

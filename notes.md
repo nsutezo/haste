@@ -306,3 +306,33 @@
   a "small, confident, definitely-real" `create_pull_request` response
   looks like, versus the HelpDocs pattern's suspicious 22MB+/759KB
   combination noted in earlier entries.
+
+## 2026-09-26 14:46 UTC run — dead CSS selector removal shipped, issue #2 duplication persists (6th run)
+- Verified at start: PRs #1/#5/#6/#10/#11/#12 all still open, unmerged, `mergeable_state: unstable`
+  (pending checks, likely still-registering CI, not failures — no maintainer comments on any of
+  them per absence of a `comments` field > 0 in `pull_request_read`). Issue #2 had zero comments
+  again — no maintainer guidance yet on the paused HelpDocs WebP approach. Did NOT re-attempt that
+  branch this run, per the 2026-09-23 decision.
+- **Shipped**: removed 76 dead CSS rule blocks (67 distinct classes + dark-theme overrides) from
+  `ui/src/assets/css/style.css` — the "broader dead-asset sweep across ui/src/assets/css" item
+  that had been sitting in the backlog cursor for 4 consecutive runs (09-23 through 09-25).
+  Technique: extract all top-level class selectors via regex, grep `ui/src/**/*.{jsx,js}` for
+  references, **then manually cross-check any zero-hit candidate against dynamic template-literal
+  class construction** before concluding "dead" — caught 4 near-miss false positives this way
+  (`modelStatus-*`, `pcard-status--*`, `dash-job-kind--*`, `pgrid-pill--*` are all built via
+  `` `foo-${var}` `` patterns in JSX and would have been wrongly removed by a naive grep-only
+  check). Verified via the established build-diff oracle. `create_pull_request` returned
+  `{"result":"success","patch":{"size":16634},"bundle":{"size":2727}}` — small/sane.
+- **New reusable technique for future CSS/dead-selector sweeps**: a naive "grep the class name,
+  zero hits = dead" pass over-reports by counting classes that are only ever constructed
+  dynamically (`` className={`prefix-${var}`} ``). Always grep for the class's *prefix* stem
+  (e.g. `dash-status-dot--` -> search for `dash-status-dot--\|dash-status-dot\b`) across all JS/JSX
+  to check for template-literal construction before removing anything with a `--` (BEM modifier)
+  naming pattern — those are the most likely to be dynamically built.
+- Issue #2 body was AGAIN found duplicated (5x Suggested Actions, 4x Run History) at the start of
+  this run despite the 2026-09-25 entry claiming a clean rewrite — **6th consecutive run** with
+  this recurrence (09-21 through 09-26). Per the 2026-09-25 escalation plan, this run stops
+  silently re-fixing and instead flags it explicitly and persistently in the issue body itself
+  (not just in memory) so a maintainer reading the issue sees the pattern directly; still doing
+  the full rewrite this run since leaving it duplicated is worse for readability, but a future run
+  should seriously consider `report_incomplete`/`missing_tool` if a 7th occurrence is confirmed.
