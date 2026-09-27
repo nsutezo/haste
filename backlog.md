@@ -519,3 +519,49 @@ and a `ui/scripts/build-diff.sh` helper formalizing the dead-code-oracle techniq
 successfully 5 times now; (5) Cosmos DB `SELECT *` investigation was already closed out
 (2026-09-20, no action needed — confirmed full-field usage); update stale MEDIUM backlog entry
 above to remove it, it's no longer open.
+
+---
+
+## Run 2026-09-27 15:22 UTC — polling visibility-guard win + PR/issue verification
+- Verified (via `list_pull_requests`, `list_branches`) all 7 open efficiency-improver
+  PRs (#1, #5, #6, #10, #11, #12, #13) still exist and are open, `mergeable_state:
+  unstable` (CI-status only, not conflicts) — no maintenance/rebase action needed
+  this run (Task 4 clear).
+- Closed stale oversized-patch auto-issue #3 via `update_issue` (1-call/run limit
+  consumed). Issues #4, #7, #8, #9 are the same category, still open — **the
+  `update_issue` tool hard-limits to 1 call per run**, a constraint not previously
+  documented in memory. Next run: prioritize using that single call on the
+  Monthly Activity issue #2 body rewrite (the mandated Task 7), and use
+  `add_comment` as the fallback for any other issue bookkeeping (closing stale
+  issues, etc.) in the same run.
+- **New backlog item found + IMPLEMENTED this run**: `ui/src/Components/Project.jsx`
+  (20s setInterval poll) and `ui/src/Components/PublishedDatasets.jsx` (5s poll
+  while `hasActiveItems`) both fired unconditionally, including while the browser
+  tab is hidden/backgrounded. `ui/src/Components/Home/OngoingJobs.jsx` already had
+  the fix (`document.visibilityState === "visible"` guard around the fetch call)
+  — applied the identical pattern to both remaining pollers. Zero new deps,
+  no interval-period changes, no new lint issues (verified via `git stash` diff
+  against `main` — same 3 pre-existing errors/2 warnings on both files).
+  `npm run build` succeeds; `npm run test:label-store` (25/25) and
+  `npm run test:ongoing-jobs` (3/3) pass. PR created: branch
+  `efficiency/pause-polling-on-hidden-tabs`, `create_pull_request` returned
+  `{"result":"success","patch":{"size":2757},"bundle":{"size":1557}}` — small/sane.
+  Focus area: Network & I/O Efficiency (tight polling loop → visibility-gated).
+- **Technique for future runs**: `grep -rn "setInterval" ui/src --include="*.jsx"`
+  is a cheap, high-signal scan for this exact class of bug — check every hit for
+  a `document.visibilityState` guard; if missing, it's very likely a safe,
+  small, well-measured win (network-request-count proxy is easy to reason about
+  and the fix is a one-line wrap with no behavior change while visible).
+- **Backlog cursor update**: next run should (1) verify the
+  `efficiency/pause-polling-on-hidden-tabs` PR actually landed via
+  `list_branches`/`list_pull_requests` before trusting this entry (per the
+  repeated false-positive lesson from HelpDocs); (2) close out issues #4, #7,
+  #8, #9 (still stale, still open) using the next available `update_issue` call
+  if the Monthly Activity issue doesn't need a full rewrite that run; (3)
+  continue the broader `setInterval`/polling grep sweep — only 3 of the ~15
+  `setTimeout`/`setInterval` hits in `ui/src` were inspected this run (Project.jsx,
+  PublishedDatasets.jsx, OngoingJobs.jsx already-fixed); remaining hits
+  (UndoRedo.jsx, LabelingTool*.jsx, InteractiveLabeler.jsx, interactiveModel.js,
+  ModelCatalogRow/ProjectRow/ModelRow/ProjectCard.jsx `setTimeout(resolve, ms)`
+  sleep-helpers, OpenDataCatalogMap.jsx) look like debounce/animation/sleep
+  helpers rather than recurring polls — lower priority, not yet confirmed.

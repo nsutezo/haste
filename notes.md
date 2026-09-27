@@ -336,3 +336,21 @@
   (not just in memory) so a maintainer reading the issue sees the pattern directly; still doing
   the full rewrite this run since leaving it duplicated is worse for readability, but a future run
   should seriously consider `report_incomplete`/`missing_tool` if a 7th occurrence is confirmed.
+
+## 2026-09-27 15:22 UTC run — polling visibility-guard win, discovered update_issue 1/run limit
+- **New constraint discovered**: the `update_issue` safe-output tool hard-limits to
+  1 call per run (confirmed via explicit error: `E002: update_issue limit reached
+  — 1 of 1 already used this run`). Previously undocumented. Plan future runs so
+  the single call goes to whichever `update_issue` task is most valuable that run
+  (usually the Monthly Activity issue #2 body rewrite for Task 7) — use
+  `add_comment` for any other issue bookkeeping (e.g. closing stale auto-issues)
+  in the same run instead of assuming multiple `update_issue` calls are available.
+- Reused the `grep -rn "setInterval" ui/src --include="*.jsx"` scan technique
+  (first time used) to find recurring-poll energy waste — quick, high-signal,
+  and complements the existing bundle-size/dead-asset techniques already in this
+  file. Confirmed 2 of ~4 real polling intervals in the UI lacked the
+  `document.visibilityState === "visible"` guard that a 3rd (`OngoingJobs.jsx`)
+  already had; fixed both to match.
+- Environment note (re-confirmed): `ui/package-lock.json` still needs the
+  ms-feed→registry.npmjs.org host rewrite + `npm ci --ignore-scripts` to install
+  in this sandbox; `git checkout -- package-lock.json` afterward, as always.
