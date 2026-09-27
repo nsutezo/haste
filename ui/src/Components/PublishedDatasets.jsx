@@ -93,10 +93,14 @@ const PublishedDatasets = () => {
 
   useEffect(() => {
     if (!hasActiveItems || !searchReady) return undefined;
-    const interval = window.setInterval(
-      () => fetchDatasetsRef.current(false),
-      5000,
-    );
+    // Skip the poll while the tab is hidden — a backgrounded tab can't
+    // show the refreshed status anyway, so this avoids burning network/CPU
+    // energy on invisible updates (matches the pattern used in OngoingJobs).
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchDatasetsRef.current(false);
+      }
+    }, 5000);
     return () => window.clearInterval(interval);
   }, [hasActiveItems, searchReady]);
 

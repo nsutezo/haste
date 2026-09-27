@@ -260,8 +260,13 @@ const Project = ({ setModalComponent }) => {
   }
 
   useEffect(() => {
-    const intervalId = setInterval(async () => {
-      fetchProjectDetails(false);
+    // Skip the network round-trip while the tab is backgrounded — the user
+    // can't see the refreshed data anyway, so polling a hidden tab only
+    // burns network/CPU energy for no visible benefit.
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchProjectDetails(false);
+      }
     }, 20000);
 
     return () => clearInterval(intervalId);
